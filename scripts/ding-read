@@ -1,0 +1,17 @@
+#!/bin/bash
+# ding-read - DingTalk Reader 短命令
+# 用法: ding-read [reader.py 的所有参数]
+# 例: ding-read "https://alidocs.dingtalk.com/i/nodes/xxx"
+
+SKILL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+
+# 优先用 venv 里的 python
+if [ -x "$HOME/.dingtalk-reader/venv/bin/python" ]; then
+    PY="$HOME/.dingtalk-reader/venv/bin/python"
+elif [ -x "$HOME/ai-listing-studio/venv/bin/python" ]; then
+    PY="$HOME/ai-listing-studio/venv/bin/python"
+else
+    PY="python3"
+fi
+
+exec "$PY" "$SKILL_DIR/reader.py" "$@"
