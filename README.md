@@ -1,14 +1,30 @@
 # DingTalk Reader Skill
 
-读取钉钉文档 / 多维表格 / 圈子内容到本地，可一键同步到 [llm-wiki](https://github.com/aaaaaaaaaaaa/llm-wiki)。
+读取钉钉文档 / 多维表格 / 圈子内容到本地 `.txt` 文件。
+
+**核心功能**：把你有权限访问的钉钉文档抓到本地。
+**可选附加**：抓完顺便入 [llm-wiki](https://github.com/aaaaaaaaaaaa/llm-wiki)（如果你要做 RAG）。
 
 不用钉钉 Open API，不要管理员权限。基于 Playwright 复用浏览器登录态。
 
 ## 适用场景
 
-- **加入了钉钉付费圈子**（如优联荟、各种行业知识库），想把内容**本地化备份**或喂给 LLM 做 RAG
-- **公司内部 wiki 在钉钉**，想离线访问/搜索
+- **看 / 备份某篇钉钉文档**：`read <url>` 命令，30 秒到手
+- **导出整个钉钉文件夹**：`bulk <folder_uuid>` 批量到本地 .txt
 - **多维表格 → 本地 JSON**：钉钉 notable 内容是 canvas 渲染的，普通爬虫拿不到，本 skill 通过监听 XHR 解决
+- **公司内部 wiki 在钉钉**：想离线访问/搜索
+- **加入了钉钉付费圈子**（如优联荟）：本地化备份方法论
+
+## 何时入 llm-wiki
+
+**不需要**入 wiki 的情况（90%）：
+- 只是看 1-2 篇文档 → `read`
+- 备份整个文件夹做归档 → `bulk`
+
+**值得**入 wiki 的情况（10%）：
+- 这批内容你打算反复 LLM 问答（RAG 场景）
+- 要做跨文档分析
+→ `sync-wiki`
 
 ## 不适用场景
 
@@ -47,13 +63,18 @@ python3 ~/.claude/skills/dingtalk-reader/reader.py --login
 
 ## 用法（在 Claude Code 里）
 
+主要命令：
 ```
 /dingtalk-reader setup           # 首次登录
-/dingtalk-reader read <URL>      # 抓单篇
+/dingtalk-reader read <URL>      # 抓单篇 ⭐
 /dingtalk-reader tree <uuid>     # 列目录
-/dingtalk-reader bulk <uuid>     # 批量抓某文件夹
-/dingtalk-reader sync-wiki <uuid> --wiki-name my-kb  # 一键入 llm-wiki
+/dingtalk-reader bulk <uuid>     # 批量抓某文件夹 ⭐
 /dingtalk-reader doctor          # 诊断
+```
+
+可选附加（仅做 RAG 时用）：
+```
+/dingtalk-reader sync-wiki <uuid> --wiki-name my-kb
 ```
 
 ## 用法（直接命令行）
@@ -61,12 +82,15 @@ python3 ~/.claude/skills/dingtalk-reader/reader.py --login
 ```bash
 PY=python3  # 或 ~/.dingtalk-reader/venv/bin/python
 
+# 必备
 $PY ~/.claude/skills/dingtalk-reader/reader.py --login
 $PY ~/.claude/skills/dingtalk-reader/reader.py "https://alidocs.dingtalk.com/i/nodes/xxx"
 $PY ~/.claude/skills/dingtalk-reader/reader.py --tree <root_uuid>
 $PY ~/.claude/skills/dingtalk-reader/reader.py --bulk <folder_uuid> --out ~/Downloads/export/
-$PY ~/.claude/skills/dingtalk-reader/reader.py --sync-wiki <folder_uuid> --wiki-name optical-knowledge
 $PY ~/.claude/skills/dingtalk-reader/reader.py --doctor
+
+# 可选（要做 RAG 才用）
+$PY ~/.claude/skills/dingtalk-reader/reader.py --sync-wiki <folder_uuid> --wiki-name optical-knowledge
 ```
 
 ## 实际效果

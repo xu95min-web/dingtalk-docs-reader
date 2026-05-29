@@ -2,16 +2,16 @@
 name: dingtalk-reader
 description: |
   Read DingTalk Docs (alidocs.dingtalk.com), 圈子 (DingTalk Circles), 多维表格 (notable spreadsheets),
-  and 知识库 (wiki) from the command line using a persistent Chromium profile. Use for: extracting
-  content from DingTalk docs you have access to; bulk-syncing 圈子 articles into a local knowledge
-  base; listing directory trees of DingTalk knowledge bases; any phrase like
-  "钉钉文档抓取", "钉钉读取", "ding-read", "圈子内容同步", "alidocs 抓取", "钉钉知识库导出",
-  "把钉钉文档同步到 wiki".
-  Subcommands: setup, read, tree, bulk, sync-wiki, doctor.
+  and 知识库 (wiki) from the command line. Primary use: read single doc or batch-download a folder
+  to local .txt files. Use for: any phrase like "钉钉文档读取", "钉钉抓取", "ding-read",
+  "alidocs 读取", "钉钉知识库导出", "把这个钉钉文档抓下来", "导出钉钉文件夹".
+  Subcommands: setup, read (single), tree (list dir), bulk (batch local), doctor.
+  OPTIONAL extra: sync-wiki (also import to ~/llm-wiki/) — only use if user explicitly asks
+  for "入 wiki" / "RAG" / "知识库整理"; do NOT default to sync.
   Do NOT use for: building DingTalk chatbots, sending messages to DingTalk groups (use DingTalk
   webhook), or anything that needs DingTalk Open API (this skill uses browser automation only).
   Only works for content the user has legitimate access to (own docs, joined circles, paid 圈子).
-argument-hint: "setup | read <url> | tree <root_uuid> | bulk <folder_uuid> [out_dir] | sync-wiki <folder_uuid> | doctor"
+argument-hint: "setup | read <url> | tree <root_uuid> | bulk <folder_uuid> [--out DIR] | doctor | sync-wiki <folder_uuid> --wiki-name <name> (optional)"
 allowed-tools:
   - Bash
   - Read
@@ -39,9 +39,13 @@ skill 目录 SKILL_DIR：`~/.claude/skills/dingtalk-reader/`
 | `setup`, `配置`, `初始化`, `首次登录`, `登钉钉` | setup |
 | `read <url>`, `抓 <url>`, `读这个钉钉文档`, `<url>` | read |
 | `tree <uuid>`, `列目录`, `看文件夹结构` | tree |
-| `bulk <uuid>`, `批量抓 <文件夹>`, `把这个文件夹全抓了` | bulk |
-| `sync-wiki <uuid>`, `同步到 wiki`, `入库` | sync-wiki |
+| `bulk <uuid>`, `批量抓 <文件夹>`, `把这个文件夹全抓下来`, `导出` | bulk |
 | `doctor`, `诊断`, `挂了`, `没反应`, `跳到登录页` | doctor |
+| `sync-wiki <uuid>`, `入 wiki`, `入库到 llm-wiki`, `做成 RAG` | sync-wiki（可选） |
+
+**重要**: `bulk` 和 `sync-wiki` 区别 ——
+- `bulk` = 只下载到本地 .txt，**用户没说"入 wiki" 就用这个**
+- `sync-wiki` = 下载 + 自动导入 `~/llm-wiki/`，**用户明说要"入 wiki" / "做 RAG" / "知识库" 才用**
 
 ## Runtime detection
 
@@ -125,7 +129,9 @@ python3 SKILL_DIR/reader.py --bulk <folder_uuid> --out ~/dingtalk-export/
 
 默认 out_dir：`~/.dingtalk-reader/cache/<timestamp>/`
 
-### `sync-wiki <folder_uuid>`
+### `sync-wiki <folder_uuid>` （**可选附加功能**）
+
+> 仅当用户明确说「入 wiki」/「做 RAG」/「建知识库」时才用。日常抓取用 `bulk` 就够了。
 
 `bulk` 的升级版：抓完直接进 `~/llm-wiki/`（按 llm-wiki skill 的格式）。
 
@@ -138,6 +144,9 @@ python3 SKILL_DIR/reader.py --sync-wiki <folder_uuid> --wiki-name <kb-name>
 - `~/llm-wiki/wiki/<kb-name>/docs/` 文档页（带 frontmatter）
 
 之后用户可以通过 llm-wiki skill 进一步整理章节/实体/索引。
+
+**适用场景**：你打算反复用这批内容做问答（RAG）、做跨文档分析。
+**不适用**：偶尔看 1-2 篇 → 用 `read`；备份用 → 用 `bulk`。
 
 ### `doctor`
 
