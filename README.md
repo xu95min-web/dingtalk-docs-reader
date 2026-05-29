@@ -102,19 +102,18 @@ $PY ~/.claude/skills/dingtalk-reader/reader.py --sync-wiki <folder_uuid> --wiki-
 ## 工作原理
 
 ```
-你（手动登录一次）
+你（手动登录一次，看到目标文档完成 SSO 同意）
     ↓ cookie/SSO 票据存到 ~/.dingtalk-reader/profile/
-Playwright 用同一个 profile 启动（headed + 窗口塞屏幕外）
-    ↓ 通过 alidocs.dingtalk.com
-读 JSON XHR + iframe innerText
-    ↓
+Playwright 用同一个 profile 启动（新版 headless + stealth 注入）
+    ↓ 完全后台跑：无弹窗 / 无 Dock / 无 Cmd+Tab
+访问 alidocs.dingtalk.com
+    ↓ 截获 JSON XHR + 提取 iframe innerText
 本地 .txt / .md
 ```
 
 关键技术细节：
-- **headed 模式**：钉钉风控会拦 headless
-- **窗口塞 -3000,-3000**：用户看不到弹窗
-- **OAuth SSO 一次性**：第一次必须人工点"同意"
+- **新版 Chromium headless**（Playwright 1.32+ 默认）+ **stealth 注入**（`navigator.webdriver = undefined`）→ 过钉钉风控
+- **OAuth SSO 一次性**：第一次必须人工点"同意"（`--login` 模式弹真浏览器）
 - **XHR 抓包**：多维表格 canvas 渲染抓不到，必须截 `/api/document/data`
 - **dentry tree API**：`/box/api/v2/dentry/list?dentryUuid=` 递归目录
 

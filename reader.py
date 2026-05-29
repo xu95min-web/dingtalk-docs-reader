@@ -15,6 +15,8 @@ import time
 import json
 import re
 import argparse
+import subprocess
+import platform
 from pathlib import Path
 
 HOME = Path.home()
@@ -34,19 +36,39 @@ def _safe_name(s):
     return s.strip()[:100]
 
 
+_STEALTH_JS = """
+    Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+    Object.defineProperty(navigator, 'plugins', {get: () => [1,2,3,4,5]});
+    Object.defineProperty(navigator, 'languages', {get: () => ['zh-CN','zh','en']});
+"""
+
+
 def _launch_ctx(p, visible=False):
-    args = []
-    if not visible:
-        args = ['--window-position=-3000,-3000', '--window-size=1280,800']
-    return p.chromium.launch_persistent_context(
+    """启动 Chromium。默认走新版 headless（无弹窗、无 Dock、无 Mission Control）。
+    新版 headless + stealth 注入能过钉钉风控。
+    visible=True 时改成 headed 模式（首次登录 / 调试用）。
+    """
+    if visible:
+        # 首次登录或调试：可见
+        args = []
+        headless = False
+    else:
+        # 默认：新版 headless（真正后台跑）
+        args = ['--disable-blink-features=AutomationControlled']
+        headless = True
+    ctx = p.chromium.launch_persistent_context(
         user_data_dir=str(PROFILE_DIR),
-        headless=False,  # 钉钉拦 headless 必须 headed
+        headless=headless,
         viewport={'width': 1440, 'height': 900},
         user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 '
                    '(KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
         locale='zh-CN',
         args=args,
     )
+    if not visible:
+        # 给所有新页面注入 stealth 脚本（去掉 navigator.webdriver 标记）
+        ctx.add_init_script(_STEALTH_JS)
+    return ctx
 
 
 # ============ login ============
