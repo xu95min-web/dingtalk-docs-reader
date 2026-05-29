@@ -29,6 +29,14 @@ CACHE_DIR.mkdir(parents=True, exist_ok=True)
 DATA_API_KEYWORDS = ['notable', 'listRecord', 'getRecord', 'view', 'sheet', 'fields', 'queryRecord', 'document/data']
 INVALID_DOMAINS = ['alicdn', 'analytics', 'aliyun', 'g.alicdn']
 
+# 屏蔽这些资源类型 / 域名加速加载（不影响内容抓取）
+BLOCK_RESOURCE_TYPES = {'image', 'media', 'font', 'stylesheet'}
+BLOCK_DOMAINS = [
+    'g.alicdn.com', 'hudong.alicdn.com', 'log.mmstat.com', 'aplus.taobao.com',
+    'gw.alicdn.com', 'analytics', 'arms-retcode', 'lz.tongji.qq.com',
+    'beacon.tingyun.com', 'h-adashx.ut.taobao.com',
+]
+
 
 def _safe_name(s):
     s = re.sub(r'\.adoc$', '', s)
@@ -93,13 +101,25 @@ def login_flow():
 
 
 # ============ read 单页 ============
-def read_url(url, mode='auto', wait_ms=20000, visible=False):
+def _block_route(route):
+    """屏蔽图片/字体/CSS/广告跟踪域，加速加载"""
+    req = route.request
+    if req.resource_type in BLOCK_RESOURCE_TYPES:
+        return route.abort()
+    if any(d in req.url for d in BLOCK_DOMAINS):
+        return route.abort()
+    return route.continue_()
+
+
+def read_url(url, mode='auto', wait_ms=8000, visible=False):
     from playwright.sync_api import sync_playwright
     captured = []
     with sync_playwright() as p:
         ctx = _launch_ctx(p, visible=visible)
         try:
             page = ctx.new_page()
+            # 屏蔽无用资源加速
+            page.route('**/*', _block_route)
 
             def on_resp(r):
                 try:
@@ -115,11 +135,9 @@ def read_url(url, mode='auto', wait_ms=20000, visible=False):
 
             page.on('response', on_resp)
             page.goto(url, wait_until='domcontentloaded', timeout=30000)
-            try:
-                page.wait_for_load_state('networkidle', timeout=wait_ms)
-            except Exception:
-                pass
-            time.sleep(3)
+            # 不等 networkidle（钉钉一直有跟踪 XHR 不会 idle，纯浪费时间）
+            # 直接等核心 iframe 出现 + 固定 sleep
+            time.sleep(max(2, wait_ms // 4000))  # wait_ms=8000 → sleep 2s
 
             # 检测登录页
             if 'login.dingtalk.com' in page.url:
@@ -223,8 +241,10 @@ def bulk_fetch(folder_uuid, out_dir):
     with sync_playwright() as p:
         ctx = _launch_ctx(p)
         page = ctx.new_page()
+        # 屏蔽无用资源加速
+        page.route('**/*', _block_route)
         page.goto('https://alidocs.dingtalk.com/', wait_until='domcontentloaded')
-        time.sleep(2)
+        time.sleep(1)
         for i, d in enumerate(files, 1):
             name, uuid = d['name'], d['uuid']
             out_file = out / f'doc_{uuid}_{_safe_name(name)}.txt'
@@ -235,11 +255,8 @@ def bulk_fetch(folder_uuid, out_dir):
             try:
                 url = f'https://alidocs.dingtalk.com/i/nodes/{uuid}'
                 page.goto(url, wait_until='domcontentloaded', timeout=30000)
-                try:
-                    page.wait_for_load_state('networkidle', timeout=15000)
-                except Exception:
-                    pass
-                time.sleep(2.5)
+                # 不等 networkidle，直接固定 sleep
+                time.sleep(2)
                 chunks = []
                 try:
                     chunks.append(page.evaluate('() => document.body ? document.body.innerText : ""'))
@@ -405,7 +422,7 @@ def main():
     parser.add_argument('--text', action='store_true', help='read 模式: 仅抓 DOM 文本')
     parser.add_argument('--api', action='store_true', help='read 模式: 仅抓 XHR JSON')
     parser.add_argument('--headed', action='store_true', help='调试: 显示浏览器')
-    parser.add_argument('--wait', type=int, default=20000)
+    parser.add_argument('--wait', type=int, default=8000)
     parser.add_argument('--doctor', action='store_true')
     args = parser.parse_args()
 
